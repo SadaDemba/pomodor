@@ -46,7 +46,7 @@ export const TabNavigator = () => {
 			})}
 		>
 			<Tab.Screen
-				name="HomeTab"
+				name="Home"
 				component={HomeScreen}
 				options={{
 					tabBarLabel: "Accueil",

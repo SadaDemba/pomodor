@@ -1,5 +1,5 @@
 export const tabBarIconMapping = {
-	Home: "clock-outline",
+	Home: "home",
 	History: "history",
 };
 

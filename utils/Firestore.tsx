@@ -1,6 +1,7 @@
 import {
 	addDoc,
 	collection,
+	deleteDoc,
 	doc,
 	getDocs,
 	query,
@@ -70,5 +71,26 @@ export const getCurrentUserSessions = async () => {
 	} catch (error) {
 		console.error("Error fetching user sessions: ", error);
 		return [];
+	}
+};
+
+export const deleteUserSessions = async () => {
+	const userEmail: string = auth.currentUser?.email ?? "";
+	if (!userEmail) {
+		console.error("User is not authenticated.");
+		return;
+	}
+
+	try {
+		const sessionsRef = collection(db, "sessions");
+		const q = query(sessionsRef, where("userEmail", "==", userEmail));
+		const querySnapshot = await getDocs(q);
+
+		const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+
+		await Promise.all(deletePromises);
+		console.log("All sessions deleted successfully for the user!");
+	} catch (error) {
+		console.error("Error deleting user sessions: ", error);
 	}
 };

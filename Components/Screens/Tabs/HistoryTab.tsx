@@ -1,5 +1,5 @@
 import { Session } from "@/models/Session";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	View,
 	Text,
@@ -7,9 +7,13 @@ import {
 	StyleSheet,
 	SafeAreaView,
 	TouchableOpacity,
+	RefreshControl,
 } from "react-native";
-import { getCurrentUserSessions } from "@/utils/Firestore";
+import { deleteUserSessions, getCurrentUserSessions } from "@/utils/Firestore";
 import { secondsToHMS, dateFormatter } from "@/utils/ConvertToHms";
+import { useFocusEffect } from "expo-router";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Alert } from "react-native";
 
 type SortOption = {
 	label: string;
@@ -29,13 +33,23 @@ export function HistoryScreen() {
 	const sortOptions: SortOption[] = [
 		{ label: "Plus récent", key: "endDate", ascending: false },
 		{ label: "Plus ancien", key: "endDate", ascending: true },
-		{ label: "Durée focus ↑", key: "focusDuration", ascending: true },
-		{ label: "Durée focus ↓", key: "focusDuration", ascending: false },
-		{ label: "Temps concentré ↑", key: "focusedTime", ascending: true },
-		{ label: "Temps concentré ↓", key: "focusedTime", ascending: false },
-		{ label: "Itérations ↑", key: "iterationsNumber", ascending: true },
-		{ label: "Itérations ↓", key: "iterationsNumber", ascending: false },
+		{ label: "Durée focus", key: "focusDuration", ascending: true },
+		{ label: "Durée focus", key: "focusDuration", ascending: false },
+		{ label: "Temps concentré", key: "focusedTime", ascending: true },
+		{ label: "Temps concentré", key: "focusedTime", ascending: false },
+		{ label: "Itérations", key: "iterationsNumber", ascending: true },
+		{ label: "Itérations", key: "iterationsNumber", ascending: false },
 	];
+
+	const handleDelete = async () => {
+		try {
+			await deleteUserSessions();
+			await fetchSessions();
+		} catch (error) {
+			console.error("Erreur lors de la suppression:", error);
+			Alert.alert("Erreur", "Impossible de supprimer l'historique");
+		}
+	};
 
 	const sortSessions = (sessionsToSort: Session[], sortOption: SortOption) => {
 		if (sortOption.key === "none") return sessionsToSort;
@@ -52,16 +66,27 @@ export function HistoryScreen() {
 	};
 
 	const fetchSessions = async () => {
-		setRefreshing(true);
-		const userSessions = await getCurrentUserSessions();
-		const sortedSessions = sortSessions(userSessions!, currentSort);
-		setSessions(sortedSessions);
-		setRefreshing(false);
+		try {
+			setRefreshing(true);
+			const userSessions = await getCurrentUserSessions();
+			if (userSessions) {
+				const sortedSessions = sortSessions(userSessions, currentSort);
+				setSessions(sortedSessions);
+			}
+		} catch (error) {
+			console.error("Erreur lors du chargement:", error);
+			Alert.alert("Erreur", "Impossible de charger l'historique");
+		} finally {
+			setRefreshing(false);
+		}
 	};
 
-	useEffect(() => {
-		fetchSessions();
-	}, []);
+	useFocusEffect(
+		useCallback(() => {
+			fetchSessions();
+			return () => {};
+		}, [])
+	);
 
 	useEffect(() => {
 		const sortedSessions = sortSessions(sessions, currentSort);
@@ -78,25 +103,36 @@ export function HistoryScreen() {
 			<FlatList
 				horizontal
 				data={sortOptions}
-				renderItem={({ item }) => (
-					<TouchableOpacity
-						style={[
-							styles.sortButton,
-							currentSort.label === item.label && styles.sortButtonActive,
-						]}
-						onPress={() => handleSort(item)}
-					>
-						<Text
-							style={[
-								styles.sortButtonText,
-								currentSort.label === item.label && styles.sortButtonTextActive,
-							]}
+				renderItem={({ item }) => {
+					const isActive =
+						currentSort.label === item.label &&
+						currentSort.ascending === item.ascending;
+					return (
+						<TouchableOpacity
+							style={[styles.sortButton, isActive && styles.sortButtonActive]}
+							onPress={() => handleSort(item)}
 						>
-							{item.label}
-						</Text>
-					</TouchableOpacity>
-				)}
-				keyExtractor={(item) => item.label}
+							<View style={styles.sortButtonContent}>
+								<Text
+									style={[
+										styles.sortButtonText,
+										isActive && styles.sortButtonTextActive,
+									]}
+								>
+									{item.label}
+								</Text>
+								<MaterialIcons
+									name={item.ascending ? "arrow-upward" : "arrow-downward"}
+									size={16}
+									color={isActive ? "white" : "#DDD"}
+								/>
+							</View>
+						</TouchableOpacity>
+					);
+				}}
+				keyExtractor={(item, index) =>
+					`${item.label}-${item.ascending}-${index}`
+				}
 				showsHorizontalScrollIndicator={false}
 			/>
 		</View>
@@ -140,6 +176,10 @@ export function HistoryScreen() {
 		</TouchableOpacity>
 	);
 
+	const onRefresh = useCallback(() => {
+		fetchSessions();
+	}, [currentSort]);
+
 	const renderEmptyComponent = () => (
 		<View style={styles.emptyContainer}>
 			<Text style={styles.emptyText}>Aucune donnée disponible</Text>
@@ -149,17 +189,47 @@ export function HistoryScreen() {
 	return (
 		<SafeAreaView style={styles.container}>
 			<View style={styles.header}>
-				<Text style={styles.title}>Historique</Text>
+				<View style={styles.headerLeft}>
+					<View style={{ width: 34 }} />
+				</View>
+				<View style={styles.headerCenter}>
+					<Text style={styles.title}>Historique</Text>
+				</View>
+				<View style={styles.headerRight}>
+					<TouchableOpacity
+						onPress={() =>
+							Alert.alert(
+								"Confirmation",
+								"Voulez-vous vraiment supprimer l'historique ?",
+								[
+									{ text: "Annuler", style: "cancel" },
+									{ text: "Confirmer", onPress: () => handleDelete() },
+								]
+							)
+						}
+						style={styles.trashButton}
+						activeOpacity={0.1}
+					>
+						<MaterialIcons name="delete" size={24} color="white" />
+					</TouchableOpacity>
+				</View>
 			</View>
 			{renderSortButtons()}
 			<FlatList
 				data={sessions}
 				renderItem={renderItem}
-				keyExtractor={(item) => item.getId()}
-				onRefresh={fetchSessions}
-				refreshing={refreshing}
+				keyExtractor={(item, index) => `${item.getId()}}`}
+				showsHorizontalScrollIndicator={false}
 				contentContainerStyle={styles.listContent}
 				ListEmptyComponent={renderEmptyComponent}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						colors={["tomato"]} // Pour Android
+						tintColor="tomato" // Pour iOS
+					/>
+				}
 			/>
 		</SafeAreaView>
 	);
@@ -175,11 +245,25 @@ const styles = StyleSheet.create({
 		backgroundColor: "#2C2C2C",
 		borderBottomWidth: 1,
 		borderBottomColor: "#444",
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+	},
+	headerLeft: {
+		flex: 1,
+		alignItems: "flex-start",
+	},
+	headerCenter: {
+		flex: 2,
+		alignItems: "center",
+	},
+	headerRight: {
+		flex: 1,
+		alignItems: "flex-end",
 	},
 	title: {
 		fontSize: 24,
 		fontWeight: "bold",
-		textAlign: "center",
 		color: "white",
 	},
 	sortContainer: {
@@ -244,5 +328,20 @@ const styles = StyleSheet.create({
 	emptyText: {
 		fontSize: 18,
 		color: "#aaa",
+	},
+	trashButton: {
+		paddingHorizontal: 10,
+		alignContent: "flex-end",
+		borderRadius: 4,
+		backgroundColor: "tomato",
+		fontSize: 24,
+		fontWeight: "bold",
+		textAlign: "center",
+		color: "white",
+	},
+	sortButtonContent: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 4,
 	},
 });
