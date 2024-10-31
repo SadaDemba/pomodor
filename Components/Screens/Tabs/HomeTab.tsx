@@ -123,7 +123,7 @@ export function HomeScreen() {
 		saveSessionToFirestore(session);
 		timer.current.remainingTime = timer.current.workDuration;
 		timer.current.isActive = false;
-		timer.current.isClosed = true;
+		timer.current.isClosed = false;
 		timer.current.iterations = 1;
 		timer.current.currentMode = Mode.Focus;
 		updateData();
