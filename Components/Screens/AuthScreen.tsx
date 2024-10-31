@@ -76,9 +76,6 @@ export function AuthScreen() {
 		} else {
 			if (!emailRegex.test(email)) {
 				errorMessage = "Le champ email est incorrect!";
-			} else if (!passwordRegex.test(password)) {
-				errorMessage =
-					"Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.";
 			}
 		}
 		setError(errorMessage);

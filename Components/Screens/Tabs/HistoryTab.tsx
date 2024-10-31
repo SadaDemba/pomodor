@@ -1,5 +1,4 @@
 import { Session } from "@/models/Session";
-import { Mode, Timer } from "@/models/Timer";
 import { useEffect, useState } from "react";
 import {
 	View,
@@ -212,7 +211,7 @@ const styles = StyleSheet.create({
 		fontWeight: "bold",
 	},
 	listContent: {
-		padding: 10,
+		padding: 20,
 	},
 	sessionItem: {
 		backgroundColor: "tomato",
